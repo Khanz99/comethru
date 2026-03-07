@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
 
@@ -38,6 +38,14 @@ type Message = {
 };
 
 export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="p-4">Loading chat...</div>}>
+      <ChatPageInner />
+    </Suspense>
+  );
+}
+
+function ChatPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const chatId = searchParams.get('chatId') || null;
@@ -563,7 +571,6 @@ export default function ChatPage() {
       );
     }
 
-    // Page scrolls; input is sticky at bottom of right pane
     return (
       <div className="flex-1 flex flex-col bg-black text-neutral-100">
         <header className="flex items-center gap-3 border-b border-neutral-900 px-4 py-3 md:border-b-0 md:border-l">
@@ -679,5 +686,6 @@ export default function ChatPage() {
     </div>
   );
 }
+
 
 
