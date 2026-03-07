@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { NotificationsBell } from "./components/NotificationsBell";
-import { NotificationCountProvider } from "./lib/notification-count-context";
+import NotificationCountProvider from "./NotificationCountContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +32,7 @@ export default function RootLayout({
       >
         <NotificationCountProvider>
           <header className="sticky top-0 z-20 border-b border-neutral-900 bg-black/80 backdrop-blur">
-            <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+            <nav className="mx-auto flex max-w-xl items-center justify-between px-4 py-3">
               <Link
                 href="/wall"
                 className="text-lg font-semibold tracking-tight text-neutral-100"
@@ -71,7 +71,7 @@ export default function RootLayout({
             </nav>
           </header>
 
-          <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-5xl px-4 py-4">
+          <main className="mx-auto flex min-h-[calc(100vh-56px)] max-w-xl flex-col px-4 py-4">
             {children}
           </main>
         </NotificationCountProvider>
