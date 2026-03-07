@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 
 export default function NewPostPage() {
+  return (
+    <Suspense fallback={<div className="p-4">Loading new post form...</div>}>
+      <NewPostPageInner />
+    </Suspense>
+  );
+}
+
+function NewPostPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const wallId = searchParams.get('wallId'); // e.g. "ufs" or "wits"
@@ -60,7 +68,6 @@ export default function NewPostPage() {
     setBody('');
     setAllowChat(true);
 
-    // Go back to the wall the user came from
     router.push(`/wall/${wallId}`);
   }
 
@@ -105,4 +112,5 @@ export default function NewPostPage() {
     </main>
   );
 }
+
 
