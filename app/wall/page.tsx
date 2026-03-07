@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
 
 type Post = {
@@ -15,8 +15,11 @@ type Post = {
 
 type Mode = 'new' | 'hot';
 
-export default function WallPage() {
+export default function WallPage({ params }: { params: { wallId: string } }) {
+  const { wallId } = params;
   const router = useRouter();
+  const searchParams = useSearchParams(); // reserved for future filters
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [mode, setMode] = useState<Mode>('new');
   const [loading, setLoading] = useState(true);
@@ -29,12 +32,12 @@ export default function WallPage() {
 
       const { data, error } = await supabase
         .from('posts_with_counts')
-        .select('id, body, created_at, comments_count, likes_count, status')
+        .select('id, body, created_at, comments_count, likes_count, status, wall_id')
         .eq('status', 'live')
-        .order(
-          mode === 'hot' ? 'likes_count' : 'created_at',
-          { ascending: false },
-        )
+        .eq('wall_id', wallId)
+        .order(mode === 'hot' ? 'likes_count' : 'created_at', {
+          ascending: false,
+        })
         .limit(20);
 
       if (error) {
@@ -42,17 +45,25 @@ export default function WallPage() {
       } else if (data) {
         setPosts(data as Post[]);
       }
+
       setLoading(false);
     }
 
     load();
-  }, [mode]);
+  }, [mode, wallId]);
+
+  const wallTitle =
+    wallId === 'ufs'
+      ? 'UFS Wall'
+      : wallId === 'wits'
+      ? 'Wits Wall'
+      : 'Comethru Wall';
 
   return (
     <main className="min-h-screen max-w-xl mx-auto px-4 py-4 space-y-4">
       <header className="flex items-center justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">Comethru Wall</h1>
+          <h1 className="text-xl font-semibold">{wallTitle}</h1>
           <div className="inline-flex items-center gap-4 text-base">
             <button
               type="button"
@@ -80,7 +91,7 @@ export default function WallPage() {
         </div>
         <button
           type="button"
-          onClick={() => router.push('/posts/new')}
+          onClick={() => router.push(`/posts/new?wallId=${wallId}`)}
           className="rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 transition"
         >
           New post
@@ -132,7 +143,7 @@ export default function WallPage() {
               </Link>
             )}
 
-            {/* Rotating orbit: wrapper rotates, cards counter-rotate so they stay upright */}
+            {/* Rotating orbit: wrapper rotates, cards counter‑rotate so they stay upright */}
             <div className="absolute inset-0 wall-rotate-slow">
               {posts.slice(1, 9).map((p, index, arr) => {
                 const angle = (index / arr.length) * 2 * Math.PI;
@@ -161,7 +172,6 @@ export default function WallPage() {
                     style={{
                       left: `calc(50% + ${x}px)`,
                       top: `calc(50% + ${y}px)`,
-                      // center card, then counter‑rotate so text stays upright
                       transform: `translate(-50%, -50%) rotate(${-angleDeg}deg)`,
                     }}
                   >
@@ -179,3 +189,4 @@ export default function WallPage() {
     </main>
   );
 }
+
