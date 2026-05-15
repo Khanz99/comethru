@@ -56,7 +56,7 @@ export default function CampusWallPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
 
-  // 1) Load posts (for now: same as global wall, later filter by wallId)
+  // 1) Load posts for this specific wall
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -64,8 +64,11 @@ export default function CampusWallPage() {
 
       const { data, error } = await supabase
         .from('posts_with_counts')
-        .select('id, body, created_at, comments_count, likes_count, status')
+        .select(
+          'id, body, created_at, comments_count, likes_count, status, wall_id',
+        )
         .eq('status', 'live')
+        .eq('wall_id', wallId)
         .order(mode === 'hot' ? 'likes_count' : 'created_at', {
           ascending: false,
         })
@@ -82,7 +85,7 @@ export default function CampusWallPage() {
     load();
   }, [mode, wallId]);
 
-  // 2) Load news via a simple API route (so we keep RSS parsing on the server)
+  // 2) Load news via a simple API route
   useEffect(() => {
     if (!wall) return;
     async function loadNews() {
@@ -152,7 +155,7 @@ export default function CampusWallPage() {
         </div>
         <button
           type="button"
-          onClick={() => router.push('/posts/new')}
+          onClick={() => router.push(`/posts/new?wallId=${wallId}`)}
           className="rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-400 transition"
         >
           New post
@@ -287,3 +290,4 @@ export default function CampusWallPage() {
     </main>
   );
 }
+
