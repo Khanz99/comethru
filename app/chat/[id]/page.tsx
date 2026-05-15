@@ -1,83 +1,379 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-import "./globals.css";
-import { NotificationsBell } from "./components/NotificationsBell";
-import { NotificationCountProvider } from "./lib/notification-count-context";
+'use client';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+import { useEffect, useRef, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { supabase } from '../../lib/supabaseClient';
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "comethru",
-  description: "Anonymous wall and chat",
+type Message = {
+  id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+const floatStyles = [
+  'sm:rotate-[-4deg] sm:translate-x-2',
+  'sm:rotate-[3deg] sm:-translate-x-3',
+  'sm:rotate-[-2deg] sm:translate-x-8',
+  'sm:rotate-[4deg] sm:-translate-x-8',
+  'sm:rotate-[-3deg] sm:translate-x-4',
+  'sm:rotate-[2deg] sm:-translate-x-2',
+];
+
+export default function ChatDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const chatId = params.id as string;
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [otherLastReadAt, setOtherLastReadAt] = useState<string | null>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      setError(null);
+      setLoading(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        setError('You must be logged in to view this chat.');
+        setLoading(false);
+        return;
+      }
+
+      setCurrentUserId(user.id);
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, sender_id, body, created_at')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+
+      setMessages((data ?? []) as Message[]);
+
+      await supabase.from('chat_reads').upsert({
+        chat_id: chatId,
+        user_id: user.id,
+        last_read_at: new Date().toISOString(),
+      });
+
+      const { data: chatData } = await supabase
+        .from('chats')
+        .select('user_a, user_b')
+        .eq('id', chatId)
+        .single();
+
+      if (chatData) {
+        const otherUserId =
+          chatData.user_a === user.id ? chatData.user_b : chatData.user_a;
+
+        const { data: readRow } = await supabase
+          .from('chat_reads')
+          .select('last_read_at')
+          .eq('chat_id', chatId)
+          .eq('user_id', otherUserId)
+          .maybeSingle();
+
+        if (readRow?.last_read_at) {
+          setOtherLastReadAt(readRow.last_read_at);
+        }
+      }
+
+      setLoading(false);
+    }
+
+    if (chatId) load();
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!chatId) return;
+
+    const channel = supabase
+      .channel(`chat-${chatId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        async (payload) => {
+          const newMsg = payload.new as Message;
+          setMessages((prev) => [...prev, newMsg]);
+
+          if (currentUserId) {
+            await supabase.from('chat_reads').upsert({
+              chat_id: chatId,
+              user_id: currentUserId,
+              last_read_at: new Date().toISOString(),
+            });
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, currentUserId]);
+
+  useEffect(() => {
+    if (!chatId || !currentUserId) return;
+
+    const channel = supabase.channel(`typing:${chatId}`);
+    typingChannelRef.current = channel;
+
+    channel
+      .on(
+        'broadcast',
+        { event: 'typing' },
+        ({ payload }: { payload: { userId: string; isTyping: boolean } }) => {
+          if (payload.userId !== currentUserId) {
+            setOtherTyping(payload.isTyping);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      if (typingChannelRef.current) {
+        supabase.removeChannel(typingChannelRef.current);
+        typingChannelRef.current = null;
+      }
+    };
+  }, [chatId, currentUserId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!input.trim()) return;
+
+    setSending(true);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setError('You must be logged in to send messages.');
+      setSending(false);
+      return;
+    }
+
+    const { error } = await supabase.from('messages').insert({
+      chat_id: chatId,
+      sender_id: user.id,
+      body: input.trim(),
+      status: 'sent',
+    });
+
+    if (error) {
+      setError(error.message);
+      setSending(false);
+      return;
+    }
+
+    setInput('');
+    setSending(false);
+  }
+
+  function handleTyping() {
+    if (!typingChannelRef.current || !currentUserId) return;
+
+    typingChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: currentUserId, isTyping: true },
+    });
+
+    if (typingTimeout) clearTimeout(typingTimeout);
+
+    const timeout = setTimeout(() => {
+      if (!typingChannelRef.current) return;
+
+      typingChannelRef.current.send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { userId: currentUserId, isTyping: false },
+      });
+    }, 1000);
+
+    setTypingTimeout(timeout);
+  }
+
+  const seenLabel = (() => {
+    if (!currentUserId || !otherLastReadAt || messages.length === 0) return null;
+
+    const lastSentByMe = [...messages]
+      .reverse()
+      .find((m) => m.sender_id === currentUserId);
+
+    if (!lastSentByMe) return null;
+
+    const isSeen = new Date(otherLastReadAt) >= new Date(lastSentByMe.created_at);
+    if (!isSeen) return null;
+
+    return (
+      <div className="pr-4 text-right text-[10px] text-neutral-500 sm:pr-6">
+        Seen
+      </div>
+    );
+  })();
+
+  if (loading) {
+    return (
+      <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] p-4 text-neutral-900">
+        <p className="text-sm text-white">Loading...</p>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] p-4 text-neutral-900">
+        <p className="text-sm text-red-700">{error}</p>
+      </main>
+    );
+  }
+
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-black text-neutral-100`}
-      >
-        <NotificationCountProvider>
-          <header className="sticky top-0 z-30 border-b border-neutral-900 bg-black/80 backdrop-blur">
-            <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-              <Link
-                href="/wall"
-                className="text-base font-semibold tracking-tight text-neutral-100 sm:text-lg"
+    <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] text-neutral-900">
+      <header className="sticky top-0 z-20 flex items-center gap-3 bg-[#b8afa2]/90 px-3 py-3 backdrop-blur sm:px-4">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="shrink-0 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold shadow-sm hover:bg-white"
+        >
+          ← Back
+        </button>
+
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-black">Private chat</h1>
+          <p className="truncate text-[11px] text-neutral-700">
+            Messages between you two
+          </p>
+        </div>
+      </header>
+
+      <section className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 sm:gap-5">
+          {messages.length === 0 && (
+            <p className="mt-10 text-center text-sm text-neutral-700">
+              No messages yet. Say hi 👋
+            </p>
+          )}
+
+          {messages.map((m, index) => {
+            const isMe = currentUserId === m.sender_id;
+            const time = new Date(m.created_at).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+
+            const floatClass = floatStyles[index % floatStyles.length];
+
+            return (
+              <div
+                key={m.id}
+                className={`flex items-end gap-2 ${
+                  isMe ? 'justify-end' : 'justify-start'
+                } ${floatClass}`}
               >
-                comethru
-              </Link>
+                {!isMe && (
+                  <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-950 shadow-md sm:h-7 sm:w-7" />
+                )}
 
-              <div className="flex items-center gap-3 sm:gap-5">
-                <Link
-                  href="/wall"
-                  className="text-xs font-medium text-neutral-300 hover:text-neutral-100 sm:text-sm"
+                <div
+                  className={`max-w-[82%] rounded-2xl bg-white px-3 py-2.5 shadow-lg sm:max-w-[75%] sm:px-4 sm:py-3 ${
+                    isMe ? 'rounded-br-md' : 'rounded-bl-md'
+                  }`}
                 >
-                  Wall
-                </Link>
+                  <div className="mb-1 flex items-center gap-2 text-[10px] font-bold text-neutral-500">
+                    <span>{isMe ? 'You' : 'Them'}</span>
+                    <span>·</span>
+                    <span>{time}</span>
+                  </div>
 
-                <Link
-                  href="/posts/new"
-                  className="hidden text-xs font-medium text-neutral-300 hover:text-neutral-100 sm:block sm:text-sm"
-                >
-                  New Post
-                </Link>
+                  <p className="whitespace-pre-wrap break-words text-sm font-semibold leading-snug">
+                    {m.body}
+                  </p>
+                </div>
 
-                <Link
-                  href="/chat"
-                  className="text-xs font-medium text-neutral-300 hover:text-neutral-100 sm:text-sm"
-                >
-                  Chats
-                </Link>
-
-                <Link
-                  href="/auth"
-                  className="hidden text-xs font-medium text-neutral-300 hover:text-neutral-100 sm:block sm:text-sm"
-                >
-                  Account
-                </Link>
-
-                <NotificationsBell />
+                {isMe && (
+                  <div className="h-6 w-6 shrink-0 rounded-full bg-gradient-to-br from-emerald-400 to-black shadow-md sm:h-7 sm:w-7" />
+                )}
               </div>
-            </nav>
-          </header>
+            );
+          })}
 
-          <div className="min-h-[calc(100dvh-57px)]">{children}</div>
-        </NotificationCountProvider>
-      </body>
-    </html>
+          {seenLabel}
+
+          {otherTyping && (
+            <div className="flex items-center gap-2 text-xs text-neutral-700">
+              <div className="h-6 w-6 rounded-full bg-neutral-800" />
+              <span>Them is typing…</span>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+      </section>
+
+      <form
+        onSubmit={handleSend}
+        className="sticky bottom-0 z-20 bg-[#b8afa2]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
+      >
+        <div className="mx-auto flex w-full max-w-xl items-center gap-2 rounded-full bg-white/80 p-2 shadow-lg">
+          <input
+            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm font-medium text-neutral-900 placeholder:text-neutral-500 focus:outline-none"
+            placeholder="Type something..."
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              handleTyping();
+            }}
+          />
+
+          <button
+            type="submit"
+            disabled={sending || !input.trim()}
+            className="shrink-0 rounded-full bg-black px-4 py-2 text-xs font-bold text-white disabled:opacity-40"
+          >
+            {sending ? 'Sending...' : 'Send'}
+          </button>
+        </div>
+
+        {error && (
+          <p className="mx-auto mt-2 max-w-xl text-xs text-red-700">{error}</p>
+        )}
+      </form>
+    </main>
   );
 }
 
