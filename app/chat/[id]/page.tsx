@@ -248,7 +248,7 @@ export default function ChatDetailPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] p-4 text-neutral-900">
+      <main className="flex h-[calc(100dvh-57px)] overflow-hidden flex-col bg-[#b8afa2] text-neutral-900">
         <p className="text-sm text-white">Loading...</p>
       </main>
     );
@@ -281,7 +281,7 @@ export default function ChatDetailPage() {
         </div>
       </header>
 
-      <section className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6">
+      <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 sm:py-6">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4 sm:gap-5">
           {messages.length === 0 && (
             <p className="mt-10 text-center text-sm text-neutral-700">
@@ -341,7 +341,7 @@ export default function ChatDetailPage() {
             </div>
           )}
 
-          <div ref={bottomRef} />
+          <div ref={bottomRef} className="h-2" />
         </div>
       </section>
 
