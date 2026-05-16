@@ -12,12 +12,12 @@ type Message = {
 };
 
 const floatStyles = [
-  'sm:rotate-[-4deg] sm:translate-x-2',
-  'sm:rotate-[3deg] sm:-translate-x-3',
-  'sm:rotate-[-2deg] sm:translate-x-8',
-  'sm:rotate-[4deg] sm:-translate-x-8',
-  'sm:rotate-[-3deg] sm:translate-x-4',
-  'sm:rotate-[2deg] sm:-translate-x-2',
+  'sm:rotate-[-2deg]',
+  'sm:rotate-[2deg]',
+  'sm:rotate-[-1deg]',
+  'sm:rotate-[1deg]',
+  'sm:rotate-[-2deg]',
+  'sm:rotate-[2deg]',
 ];
 
 export default function ChatDetailPage() {
@@ -164,7 +164,7 @@ export default function ChatDetailPage() {
   }, [chatId, currentUserId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
   async function handleSend(e: React.FormEvent) {
@@ -240,7 +240,7 @@ export default function ChatDetailPage() {
     if (!isSeen) return null;
 
     return (
-      <div className="pr-4 text-right text-[10px] text-neutral-500 sm:pr-6">
+      <div className="w-full pr-3 text-right text-[10px] text-neutral-500">
         Seen
       </div>
     );
@@ -248,7 +248,7 @@ export default function ChatDetailPage() {
 
   if (loading) {
     return (
-      <main className="flex h-[calc(100svh-57px)] flex-col overflow-hidden bg-[#b8afa2] text-neutral-900">
+      <main className="flex h-[calc(100svh-57px)] w-full max-w-full flex-col overflow-hidden bg-[#b8afa2] p-4 text-neutral-900">
         <p className="text-sm text-white">Loading...</p>
       </main>
     );
@@ -256,15 +256,15 @@ export default function ChatDetailPage() {
 
   if (error) {
     return (
-      <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] p-4 text-neutral-900">
+      <main className="flex h-[calc(100svh-57px)] w-full max-w-full flex-col overflow-hidden bg-[#b8afa2] p-4 text-neutral-900">
         <p className="text-sm text-red-700">{error}</p>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] text-neutral-900">
-      <header className="shrink-0 flex items-center gap-3 bg-[#b8afa2]/90 px-3 py-3 backdrop-blur sm:px-4">
+    <main className="flex h-[calc(100svh-57px)] w-full max-w-full flex-col overflow-hidden bg-[#b8afa2] text-neutral-900">
+      <header className="flex shrink-0 items-center gap-3 bg-[#b8afa2]/90 px-3 py-3 backdrop-blur sm:px-4">
         <button
           type="button"
           onClick={() => router.back()}
@@ -281,8 +281,8 @@ export default function ChatDetailPage() {
         </div>
       </header>
 
-      <section className="min-h-0 flex-1 touch-pan-y overflow-y-scroll overscroll-contain px-3 py-4 sm:px-4 sm:py-6">
-        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 sm:gap-5">
+      <section className="min-h-0 flex-1 touch-pan-y overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 sm:py-6">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-4 overflow-x-hidden sm:gap-5">
           {messages.length === 0 && (
             <p className="mt-10 text-center text-sm text-neutral-700">
               No messages yet. Say hi 👋
@@ -301,7 +301,7 @@ export default function ChatDetailPage() {
             return (
               <div
                 key={m.id}
-                className={`flex items-end gap-2 ${
+                className={`flex w-full max-w-full items-end gap-2 overflow-hidden ${
                   isMe ? 'justify-end' : 'justify-start'
                 } ${floatClass}`}
               >
@@ -310,7 +310,7 @@ export default function ChatDetailPage() {
                 )}
 
                 <div
-                  className={`max-w-[82%] rounded-2xl bg-white px-3 py-2.5 shadow-lg sm:max-w-[75%] sm:px-4 sm:py-3 ${
+                  className={`min-w-0 max-w-[78%] rounded-2xl bg-white px-3 py-2.5 shadow-lg sm:max-w-[75%] sm:px-4 sm:py-3 ${
                     isMe ? 'rounded-br-md' : 'rounded-bl-md'
                   }`}
                 >
@@ -335,19 +335,19 @@ export default function ChatDetailPage() {
           {seenLabel}
 
           {otherTyping && (
-            <div className="flex items-center gap-2 text-xs text-neutral-700">
-              <div className="h-6 w-6 rounded-full bg-neutral-800" />
-              <span>Them is typing…</span>
+            <div className="flex w-full max-w-full items-center gap-2 overflow-hidden text-xs text-neutral-700">
+              <div className="h-6 w-6 shrink-0 rounded-full bg-neutral-800" />
+              <span className="min-w-0 truncate">Them is typing…</span>
             </div>
           )}
 
-         <div ref={bottomRef} className="h-3 shrink-0" />
+          <div ref={bottomRef} className="h-3 shrink-0" />
         </div>
       </section>
 
-     <form
-       onSubmit={handleSend}
-       className="shrink-0 bg-[#b8afa2]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
+      <form
+        onSubmit={handleSend}
+        className="shrink-0 bg-[#b8afa2]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
       >
         <div className="mx-auto flex w-full max-w-xl items-center gap-2 rounded-full bg-white/80 p-2 shadow-lg">
           <input
