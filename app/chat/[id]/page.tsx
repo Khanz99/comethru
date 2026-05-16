@@ -248,7 +248,7 @@ export default function ChatDetailPage() {
 
   if (loading) {
     return (
-      <main className="flex h-[calc(100dvh-57px)] overflow-hidden flex-col bg-[#b8afa2] text-neutral-900">
+      <main className="flex h-[calc(100svh-57px)] flex-col overflow-hidden bg-[#b8afa2] text-neutral-900">
         <p className="text-sm text-white">Loading...</p>
       </main>
     );
@@ -264,7 +264,7 @@ export default function ChatDetailPage() {
 
   return (
     <main className="flex min-h-[calc(100dvh-57px)] flex-col bg-[#b8afa2] text-neutral-900">
-      <header className="sticky top-0 z-20 flex items-center gap-3 bg-[#b8afa2]/90 px-3 py-3 backdrop-blur sm:px-4">
+      <header className="shrink-0 flex items-center gap-3 bg-[#b8afa2]/90 px-3 py-3 backdrop-blur sm:px-4">
         <button
           type="button"
           onClick={() => router.back()}
@@ -281,7 +281,7 @@ export default function ChatDetailPage() {
         </div>
       </header>
 
-      <section className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4 sm:px-4 sm:py-6">
+      <section className="min-h-0 flex-1 touch-pan-y overflow-y-scroll overscroll-contain px-3 py-4 sm:px-4 sm:py-6">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-4 sm:gap-5">
           {messages.length === 0 && (
             <p className="mt-10 text-center text-sm text-neutral-700">
@@ -341,13 +341,13 @@ export default function ChatDetailPage() {
             </div>
           )}
 
-          <div ref={bottomRef} className="h-2" />
+         <div ref={bottomRef} className="h-3 shrink-0" />
         </div>
       </section>
 
-      <form
-        onSubmit={handleSend}
-        className="sticky bottom-0 z-20 bg-[#b8afa2]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
+     <form
+       onSubmit={handleSend}
+       className="shrink-0 bg-[#b8afa2]/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:px-4"
       >
         <div className="mx-auto flex w-full max-w-xl items-center gap-2 rounded-full bg-white/80 p-2 shadow-lg">
           <input
