@@ -33,6 +33,7 @@ export default function PostDetailPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [likes, setLikes] = useState(0);
+  const [hasLiked, setHasLiked] = useState(false);
   const [likeError, setLikeError] = useState<string | null>(null);
   const [likeLoading, setLikeLoading] = useState(false);
 
@@ -72,6 +73,24 @@ export default function PostDetailPage() {
         setPost(postData as Post);
         if (!likesError && likeData) setLikes(likeData.length);
         if (!commentError && commentData) setComments(commentData as Comment[]);
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: ownReaction } = await supabase
+            .from('reactions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('target_type', 'post')
+            .eq('target_id', postId)
+            .maybeSingle();
+
+          setHasLiked(Boolean(ownReaction));
+        } else {
+          setHasLiked(false);
+        }
       }
 
       setLoading(false);
@@ -125,6 +144,8 @@ export default function PostDetailPage() {
   }
 
   async function handleLike() {
+    if (hasLiked || likeLoading) return;
+
     setLikeError(null);
     setLikeLoading(true);
 
@@ -139,12 +160,17 @@ export default function PostDetailPage() {
       return;
     }
 
-    const { error } = await supabase.from('reactions').upsert({
-      user_id: user.id,
-      target_type: 'post',
-      target_id: postId,
-      reaction: 'like',
-    });
+    const { error } = await supabase.from('reactions').upsert(
+      {
+        user_id: user.id,
+        target_type: 'post',
+        target_id: postId,
+        reaction: 'like',
+      },
+      {
+        onConflict: 'user_id,target_type,target_id',
+      },
+    );
 
     if (error) {
       setLikeError(error.message);
@@ -152,6 +178,7 @@ export default function PostDetailPage() {
       return;
     }
 
+    setHasLiked(true);
     setLikes((prev) => prev + 1);
     setLikeLoading(false);
   }
@@ -278,10 +305,10 @@ export default function PostDetailPage() {
               <button
                 type="button"
                 onClick={handleLike}
-                disabled={likeLoading}
-                className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-xs font-black text-white shadow-md transition hover:bg-neutral-800 disabled:opacity-50"
+                disabled={likeLoading || hasLiked}
+                className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-xs font-black text-white shadow-md transition hover:bg-neutral-800 disabled:cursor-default disabled:opacity-60"
               >
-                👍 {likeLoading ? 'Liking...' : 'Like'}
+                👍 {likeLoading ? 'Liking...' : hasLiked ? 'Liked' : 'Like'}
               </button>
 
               <span className="rounded-full bg-neutral-100 px-3 py-2 text-xs font-bold text-neutral-600">
