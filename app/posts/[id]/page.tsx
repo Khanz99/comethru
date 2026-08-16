@@ -144,7 +144,7 @@ export default function PostDetailPage() {
   }
 
   async function handleLike() {
-    if (hasLiked || likeLoading) return;
+    if (likeLoading) return;
 
     setLikeError(null);
     setLikeLoading(true);
@@ -156,6 +156,26 @@ export default function PostDetailPage() {
 
     if (userError || !user) {
       setLikeError('You must be logged in to like.');
+      setLikeLoading(false);
+      return;
+    }
+
+    if (hasLiked) {
+      const { error } = await supabase
+        .from('reactions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('target_type', 'post')
+        .eq('target_id', postId);
+
+      if (error) {
+        setLikeError(error.message);
+        setLikeLoading(false);
+        return;
+      }
+
+      setHasLiked(false);
+      setLikes((prev) => Math.max(0, prev - 1));
       setLikeLoading(false);
       return;
     }
@@ -305,10 +325,14 @@ export default function PostDetailPage() {
               <button
                 type="button"
                 onClick={handleLike}
-                disabled={likeLoading || hasLiked}
-                className="inline-flex items-center justify-center rounded-full bg-black px-4 py-2 text-xs font-black text-white shadow-md transition hover:bg-neutral-800 disabled:cursor-default disabled:opacity-60"
+                disabled={likeLoading}
+                className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-black shadow-md transition disabled:opacity-60 ${
+                  hasLiked
+                    ? 'bg-neutral-200 text-neutral-900 hover:bg-neutral-300'
+                    : 'bg-black text-white hover:bg-neutral-800'
+                }`}
               >
-                👍 {likeLoading ? 'Liking...' : hasLiked ? 'Liked' : 'Like'}
+                👍 {likeLoading ? (hasLiked ? 'Unliking...' : 'Liking...') : hasLiked ? 'Unlike' : 'Like'}
               </button>
 
               <span className="rounded-full bg-neutral-100 px-3 py-2 text-xs font-bold text-neutral-600">
