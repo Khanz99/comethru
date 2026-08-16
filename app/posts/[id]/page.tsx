@@ -122,19 +122,6 @@ export default function PostDetailPage() {
     setComments((prev) => [...prev, data as Comment]);
     setNewComment('');
     setSubmitting(false);
-
-    if (post && user.id !== post.author_id) {
-      const { error: notifError } = await supabase.from('notifications').insert({
-        user_id: post.author_id,
-        type: 'comment',
-        body: 'Someone commented on your post.',
-        target_url: `/posts/${postId}`,
-      });
-
-      if (notifError) {
-        console.error('Comment notification could not be created:', notifError.message);
-      }
-    }
   }
 
   async function handleLike() {
@@ -232,19 +219,6 @@ export default function PostDetailPage() {
       }
 
       chatId = newChat.id;
-    }
-
-    if (chatId) {
-      const { error: notifError } = await supabase.from('notifications').insert({
-        user_id: post.author_id,
-        type: 'chat',
-        body: 'Someone started a chat with you about your post.',
-        target_url: `/chat/${chatId}`,
-      });
-
-      if (notifError) {
-        console.error('Chat notification could not be created:', notifError.message);
-      }
     }
 
     setChatLoading(false);
