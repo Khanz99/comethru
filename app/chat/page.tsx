@@ -224,9 +224,17 @@ function ChatPageInner() {
       setDetailLoading(false);
     }
 
-    if (!chatId || !currentUserId) return;
+if (!chatId || !currentUserId) return;
 
-    loadDetail(chatId, currentUserId);
+const selectedChat = chats.find((chat) => chat.id === chatId);
+
+if (!selectedChat) {
+  setDetailError('Chat not found or you do not have access.');
+  setDetailLoading(false);
+  return;
+}
+
+loadDetail(chatId, currentUserId);
 
     const chatChannel = supabase
       .channel(`chat-${chatId}`)
@@ -268,7 +276,7 @@ function ChatPageInner() {
       chatChannelRef.current = null;
       typingChannelRef.current = null;
     };
-  }, [chatId, currentUserId]);
+  }, [chatId, currentUserId, chats]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
